@@ -106,6 +106,34 @@ function extractText(payload) {
 }
 
 // ============================
+// Fonction pour extraire attachments
+// ============================
+
+function extractAttachments(payload) {
+
+ if (!payload.parts) return []
+
+ let attachments = []
+
+ for (const part of payload.parts) {
+
+  if (part.filename && part.filename.length > 0) {
+
+   attachments.push({
+    filename: part.filename,
+    mimeType: part.mimeType,
+    attachmentId: part.body?.attachmentId
+   })
+
+  }
+
+ }
+
+ return attachments
+
+}
+
+// ============================
 // Lire un email spécifique
 // ============================
 
@@ -128,12 +156,15 @@ app.get("/readEmail/:id", async (req, res) => {
 
   const textContent = extractText(email.payload)
 
+  const attachments = extractAttachments(email.payload)
+
   res.json({
    id: email.id,
    threadId: email.threadId,
    snippet: email.snippet,
    text: textContent,
-   headers: email.payload?.headers || []
+   headers: email.payload?.headers || [],
+   attachments: attachments
   })
 
  } catch (error) {
