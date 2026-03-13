@@ -69,7 +69,7 @@ try {
 const token = await getAccessToken()
 
 const response = await axios.get(
-`https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}`,
+`https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=full`,
 {
 headers: {
 Authorization: `Bearer ${token}`
