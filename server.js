@@ -52,7 +52,7 @@ const email = response.data
 
 const attachments = []
 
-if (email.payload.parts) {
+if (email.payload && email.payload.parts) {
  email.payload.parts.forEach(part => {
   if (part.filename && part.body && part.body.attachmentId) {
    attachments.push({
