@@ -48,7 +48,25 @@ Authorization: `Bearer ${token}`
 }
 )
 
-res.json(response.data)
+const email = response.data
+
+const attachments = []
+
+if (email.payload.parts) {
+ email.payload.parts.forEach(part => {
+  if (part.filename && part.body && part.body.attachmentId) {
+   attachments.push({
+    filename: part.filename,
+    attachmentId: part.body.attachmentId
+   })
+  }
+ })
+}
+
+res.json({
+ email,
+ attachments
+})
 
 } catch (error) {
 
