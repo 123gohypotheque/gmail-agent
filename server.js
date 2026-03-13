@@ -290,6 +290,60 @@ app.get("/readEmail/:id", async (req, res) => {
 })
 
 // ============================
+// Lire toute une conversation (thread)
+// ============================
+
+app.get("/getThread/:threadId", async (req, res) => {
+
+ try {
+
+  const token = await getAccessToken()
+
+  const response = await axios.get(
+   `https://gmail.googleapis.com/gmail/v1/users/me/threads/${req.params.threadId}`,
+   {
+    headers: {
+     Authorization: `Bearer ${token}`
+    }
+   }
+  )
+
+  const thread = response.data
+
+  const messages = thread.messages.map(msg => {
+
+   const textContent = extractText(msg.payload)
+   const attachments = extractAttachments(msg.payload)
+
+   return {
+    id: msg.id,
+    threadId: msg.threadId,
+    snippet: msg.snippet,
+    text: textContent,
+    headers: msg.payload?.headers || [],
+    attachments: attachments
+   }
+
+  })
+
+  res.json({
+   threadId: thread.id,
+   messages: messages
+  })
+
+ } catch (error) {
+
+  console.error("Erreur getThread:", error.response?.data || error.message)
+
+  res.status(500).json({
+   error: "Impossible de lire la conversation"
+  })
+
+ }
+
+})
+
+// ============================
 // Envoyer un email
 // ============================
 
