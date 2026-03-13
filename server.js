@@ -52,8 +52,14 @@ app.get("/readInbox", async (req, res) => {
 
   const token = await getAccessToken()
 
+  const pageToken = req.query.pageToken || ""
+
+  const url = pageToken
+   ? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50&pageToken=${pageToken}`
+   : `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50`
+
   const response = await axios.get(
-   "https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=10",
+   url,
    {
     headers: {
      Authorization: `Bearer ${token}`
@@ -69,6 +75,41 @@ app.get("/readInbox", async (req, res) => {
 
   res.status(500).json({
    error: "Impossible de lire la boite Gmail"
+  })
+
+ }
+
+})
+
+// ============================
+// Recherche d'emails Gmail
+// ============================
+
+app.get("/searchEmails", async (req, res) => {
+
+ try {
+
+  const token = await getAccessToken()
+
+  const query = req.query.q || ""
+
+  const response = await axios.get(
+   `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`,
+   {
+    headers: {
+     Authorization: `Bearer ${token}`
+    }
+   }
+  )
+
+  res.json(response.data)
+
+ } catch (error) {
+
+  console.error("Erreur searchEmails:", error.response?.data || error.message)
+
+  res.status(500).json({
+   error: "Impossible de rechercher les emails"
   })
 
  }
@@ -106,32 +147,101 @@ function extractText(payload) {
 }
 
 // ============================
-// Fonction pour extraire attachments
+// Fonction extraction attachments (récursive)
 // ============================
 
 function extractAttachments(payload) {
 
- if (!payload.parts) return []
-
  let attachments = []
 
- for (const part of payload.parts) {
+ function walkParts(parts) {
 
-  if (part.filename && part.filename.length > 0) {
+  for (const part of parts) {
 
-   attachments.push({
-    filename: part.filename,
-    mimeType: part.mimeType,
-    attachmentId: part.body?.attachmentId
-   })
+   if (part.filename && part.filename.length > 0) {
+
+    attachments.push({
+     filename: part.filename,
+     mimeType: part.mimeType,
+     attachmentId: part.body?.attachmentId
+    })
+
+   }
+
+   if (part.parts) {
+    walkParts(part.parts)
+   }
 
   }
 
  }
 
+ if (payload.parts) {
+  walkParts(payload.parts)
+ }
+
  return attachments
 
 }
+
+// ============================
+// Télécharger attachment Gmail
+// ============================
+
+async function downloadAttachment(token, messageId, attachmentId) {
+
+ const response = await axios.get(
+  `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
+  {
+   headers: {
+    Authorization: `Bearer ${token}`
+   }
+  }
+ )
+
+ return response.data.data
+
+}
+
+function decodeBase64(data) {
+
+ const base64 = data.replace(/-/g, "+").replace(/_/g, "/")
+
+ return Buffer.from(base64, "base64")
+
+}
+
+// ============================
+// Télécharger pièce jointe
+// ============================
+
+app.get("/downloadAttachment/:messageId/:attachmentId", async (req, res) => {
+
+ try {
+
+  const token = await getAccessToken()
+
+  const { messageId, attachmentId } = req.params
+
+  const base64Data = await downloadAttachment(token, messageId, attachmentId)
+
+  const fileBuffer = decodeBase64(base64Data)
+
+  res.setHeader("Content-Type", "application/octet-stream")
+
+  res.send(fileBuffer)
+
+ } catch (error) {
+
+  console.error("Erreur downloadAttachment:", error.response?.data || error.message)
+
+  res.status(500).json({
+   error: "Impossible de télécharger la pièce jointe"
+  })
+
+ }
+
+})
 
 // ============================
 // Lire un email spécifique
