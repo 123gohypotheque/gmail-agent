@@ -87,7 +87,7 @@ try {
 const token = await getAccessToken()
 
 const response = await axios.get(
-`https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=full`,
+`https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
 {
 headers: {
 Authorization: `Bearer ${token}`
@@ -95,7 +95,16 @@ Authorization: `Bearer ${token}`
 }
 )
 
-res.json(response.data)
+const email = response.data
+
+let snippet = email.snippet || ""
+
+res.json({
+ id: email.id,
+ threadId: email.threadId,
+ snippet: snippet,
+ headers: email.payload.headers
+})
 
 } catch (error) {
 
