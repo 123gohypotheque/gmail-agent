@@ -8,7 +8,6 @@ app.use(cors())
 app.use(express.json({ limit: "50mb" }))
 app.use(express.urlencoded({ limit: "50mb", extended: true }))
 
-// Variables d'environnement
 const CLIENT_ID = process.env.CLIENT_ID
 const CLIENT_SECRET = process.env.CLIENT_SECRET
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN
@@ -51,7 +50,6 @@ app.get("/readInbox", async (req, res) => {
  try {
 
   const token = await getAccessToken()
-
   const pageToken = req.query.pageToken || ""
 
   const url = pageToken
@@ -59,7 +57,8 @@ app.get("/readInbox", async (req, res) => {
    : `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50`
 
   const response = await axios.get(url,{
-   headers: { Authorization: `Bearer ${token}` }
+   headers:{ Authorization:`Bearer ${token}` },
+   timeout:15000
   })
 
   res.json(response.data)
@@ -69,7 +68,7 @@ app.get("/readInbox", async (req, res) => {
   console.error("Erreur readInbox:", error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible de lire la boite Gmail"
+   error:"Impossible de lire la boite Gmail"
   })
 
  }
@@ -80,29 +79,29 @@ app.get("/readInbox", async (req, res) => {
 // Recherche d'emails Gmail
 // ============================
 
-app.get("/searchEmails", async (req, res) => {
+app.get("/searchEmails", async (req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
-
   const query = req.query.q || ""
 
   const response = await axios.get(
    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`,
    {
-    headers: { Authorization: `Bearer ${token}` }
+    headers:{ Authorization:`Bearer ${token}` },
+    timeout:15000
    }
   )
 
   res.json(response.data)
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur searchEmails:", error.response?.data || error.message)
+  console.error("Erreur searchEmails:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible de rechercher les emails"
+   error:"Impossible de rechercher les emails"
   })
 
  }
@@ -110,24 +109,26 @@ app.get("/searchEmails", async (req, res) => {
 })
 
 // ============================
-// Fonction pour extraire texte
+// Extraction texte
 // ============================
 
-function extractText(payload) {
+function extractText(payload){
 
- if (!payload) return ""
+ if(!payload) return ""
 
- if (payload.mimeType === "text/plain" && payload.body?.data) {
-  return Buffer.from(payload.body.data, "base64").toString("utf8")
+ if(payload.mimeType==="text/plain" && payload.body?.data){
+
+  return Buffer.from(payload.body.data,"base64").toString("utf8")
+
  }
 
- if (payload.parts) {
+ if(payload.parts){
 
-  for (const part of payload.parts) {
+  for(const part of payload.parts){
 
    const result = extractText(part)
 
-   if (result) return result
+   if(result) return result
 
   }
 
@@ -138,49 +139,53 @@ function extractText(payload) {
 }
 
 // ============================
-// Fonction extraction attachments
+// Extraction attachments
 // ============================
 
-function extractAttachments(payload) {
+function extractAttachments(payload){
 
- let attachments = []
+ let attachments=[]
 
- function walkParts(parts) {
+ function walkParts(parts){
 
-  for (const part of parts) {
+  for(const part of parts){
 
-   if (part.filename && part.filename.length > 0) {
+   if(part.filename && part.filename.length>0){
 
     attachments.push({
-     filename: part.filename,
-     mimeType: part.mimeType,
-     attachmentId: part.body?.attachmentId
+     filename:part.filename,
+     mimeType:part.mimeType,
+     attachmentId:part.body?.attachmentId
     })
 
    }
 
-   if (part.parts) walkParts(part.parts)
+   if(part.parts){
+    walkParts(part.parts)
+   }
 
   }
 
  }
 
- if (payload.parts) walkParts(payload.parts)
+ if(payload.parts){
+  walkParts(payload.parts)
+ }
 
  return attachments
 
 }
 
 // ============================
-// Télécharger attachment Gmail
+// Download attachment
 // ============================
 
-async function downloadAttachment(token, messageId, attachmentId) {
+async function downloadAttachment(token,messageId,attachmentId){
 
  const response = await axios.get(
   `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
   {
-   headers: { Authorization: `Bearer ${token}` }
+   headers:{ Authorization:`Bearer ${token}` }
   }
  )
 
@@ -188,11 +193,11 @@ async function downloadAttachment(token, messageId, attachmentId) {
 
 }
 
-function decodeBase64(data) {
+function decodeBase64(data){
 
- const base64 = data.replace(/-/g, "+").replace(/_/g, "/")
+ const base64 = data.replace(/-/g,"+").replace(/_/g,"/")
 
- return Buffer.from(base64, "base64")
+ return Buffer.from(base64,"base64")
 
 }
 
@@ -200,28 +205,28 @@ function decodeBase64(data) {
 // Télécharger pièce jointe
 // ============================
 
-app.get("/downloadAttachment/:messageId/:attachmentId", async (req, res) => {
+app.get("/downloadAttachment/:messageId/:attachmentId", async(req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
 
-  const { messageId, attachmentId } = req.params
+  const {messageId,attachmentId} = req.params
 
-  const base64Data = await downloadAttachment(token, messageId, attachmentId)
+  const base64Data = await downloadAttachment(token,messageId,attachmentId)
 
   const fileBuffer = decodeBase64(base64Data)
 
-  res.setHeader("Content-Type", "application/octet-stream")
+  res.setHeader("Content-Type","application/octet-stream")
 
   res.send(fileBuffer)
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur downloadAttachment:", error.response?.data || error.message)
+  console.error("Erreur downloadAttachment:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible de télécharger la pièce jointe"
+   error:"Impossible de télécharger la pièce jointe"
   })
 
  }
@@ -229,43 +234,42 @@ app.get("/downloadAttachment/:messageId/:attachmentId", async (req, res) => {
 })
 
 // ============================
-// Lire un email spécifique
+// Lire email spécifique
 // ============================
 
-app.get("/readEmail/:id", async (req, res) => {
+app.get("/readEmail/:id", async(req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
 
   const response = await axios.get(
    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=full`,
    {
-    headers: { Authorization: `Bearer ${token}` }
+    headers:{ Authorization:`Bearer ${token}` }
    }
   )
 
   const email = response.data
 
   const textContent = extractText(email.payload)
-
   const attachments = extractAttachments(email.payload)
 
   res.json({
-   id: email.id,
-   threadId: email.threadId,
-   snippet: email.snippet,
-   text: textContent,
-   headers: email.payload?.headers || [],
-   attachments: attachments
+   id:email.id,
+   threadId:email.threadId,
+   snippet:email.snippet,
+   text:textContent,
+   headers:email.payload?.headers || [],
+   attachments:attachments
   })
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur readEmail:", error.response?.data || error.message)
+  console.error("Erreur readEmail:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible de lire cet email"
+   error:"Impossible de lire cet email"
   })
 
  }
@@ -273,51 +277,51 @@ app.get("/readEmail/:id", async (req, res) => {
 })
 
 // ============================
-// Lire toute une conversation
+// Lire thread Gmail
 // ============================
 
-app.get("/getThread/:threadId", async (req, res) => {
+app.get("/getThread/:threadId", async(req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
 
   const response = await axios.get(
    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${req.params.threadId}`,
    {
-    headers: { Authorization: `Bearer ${token}` }
+    headers:{ Authorization:`Bearer ${token}` }
    }
   )
 
   const thread = response.data
 
-  const messages = thread.messages.map(msg => {
+  const messages = thread.messages.map(msg=>{
 
    const textContent = extractText(msg.payload)
    const attachments = extractAttachments(msg.payload)
 
-   return {
-    id: msg.id,
-    threadId: msg.threadId,
-    snippet: msg.snippet,
-    text: textContent,
-    headers: msg.payload?.headers || [],
-    attachments: attachments
+   return{
+    id:msg.id,
+    threadId:msg.threadId,
+    snippet:msg.snippet,
+    text:textContent,
+    headers:msg.payload?.headers || [],
+    attachments:attachments
    }
 
   })
 
   res.json({
-   threadId: thread.id,
-   messages: messages
+   threadId:thread.id,
+   messages:messages
   })
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur getThread:", error.response?.data || error.message)
+  console.error("Erreur getThread:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible de lire la conversation"
+   error:"Impossible de lire la conversation"
   })
 
  }
@@ -325,88 +329,104 @@ app.get("/getThread/:threadId", async (req, res) => {
 })
 
 // ============================
-// Export conversation complète
+// Export conversation optimisé
 // ============================
 
-app.post("/exportConversation", async (req, res) => {
+app.post("/exportConversation", async(req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
 
-  const { email } = req.body
+  const {email} = req.body
 
-  if (!email) {
-   return res.status(400).json({ error: "Email requis" })
+  if(!email){
+   return res.status(400).json({error:"Email requis"})
   }
 
-  let allMessages = []
-  let nextPageToken = null
+  let allMessages=[]
+  let nextPageToken=null
 
-  const searchQuery = `from:${email} OR to:${email}`
+  const searchQuery=`from:${email} OR to:${email}`
 
-  do {
+  do{
 
    const url = nextPageToken
-    ? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100&pageToken=${nextPageToken}`
-    : `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100`
+   ? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100&pageToken=${nextPageToken}`
+   : `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100`
 
    const response = await axios.get(url,{
-    headers: { Authorization: `Bearer ${token}` }
+    headers:{ Authorization:`Bearer ${token}` },
+    timeout:15000
    })
 
-   const messages = response.data.messages || []
+   const messages=response.data.messages || []
 
    allMessages.push(...messages)
 
-   nextPageToken = response.data.nextPageToken
+   nextPageToken=response.data.nextPageToken
 
-  } while (nextPageToken)
+  }while(nextPageToken)
 
-  let detailedMessages = []
+  let detailedMessages=[]
 
-  for (const msg of allMessages) {
+  const BATCH_SIZE=15
 
-   const response = await axios.get(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
-    {
-     headers: { Authorization: `Bearer ${token}` }
-    }
+  for(let i=0;i<allMessages.length;i+=BATCH_SIZE){
+
+   const batch=allMessages.slice(i,i+BATCH_SIZE)
+
+   const responses = await Promise.all(
+
+    batch.map(msg=>
+     axios.get(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+      {
+       headers:{ Authorization:`Bearer ${token}` },
+       timeout:15000
+      }
+     )
+    )
+
    )
 
-   const emailData = response.data
+   for(const r of responses){
 
-   const textContent = extractText(emailData.payload)
+    const emailData=r.data
 
-   const headers = emailData.payload?.headers || []
+    const textContent=extractText(emailData.payload)
 
-   const getHeader = (name) => headers.find(h => h.name === name)?.value || ""
+    const headers=emailData.payload?.headers || []
 
-   detailedMessages.push({
-    id: emailData.id,
-    threadId: emailData.threadId,
-    date: getHeader("Date"),
-    from: getHeader("From"),
-    to: getHeader("To"),
-    subject: getHeader("Subject"),
-    text: textContent
-   })
+    const getHeader=(name)=>headers.find(h=>h.name===name)?.value || ""
+
+    detailedMessages.push({
+     id:emailData.id,
+     threadId:emailData.threadId,
+     date:getHeader("Date"),
+     from:getHeader("From"),
+     to:getHeader("To"),
+     subject:getHeader("Subject"),
+     text:textContent
+    })
+
+   }
 
   }
 
-  detailedMessages.sort((a, b) => new Date(a.date) - new Date(b.date))
+  detailedMessages.sort((a,b)=>new Date(a.date)-new Date(b.date))
 
   res.json({
-   totalEmails: detailedMessages.length,
-   emails: detailedMessages
+   totalEmails:detailedMessages.length,
+   emails:detailedMessages
   })
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur exportConversation:", error.response?.data || error.message)
+  console.error("Erreur exportConversation:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible d'exporter la conversation"
+   error:"Impossible d'exporter la conversation"
   })
 
  }
@@ -414,18 +434,18 @@ app.post("/exportConversation", async (req, res) => {
 })
 
 // ============================
-// Envoyer un email
+// Envoyer email
 // ============================
 
-app.post("/sendEmail", async (req, res) => {
+app.post("/sendEmail", async(req,res)=>{
 
- try {
+ try{
 
   const token = await getAccessToken()
 
-  const { to, subject, message } = req.body
+  const {to,subject,message}=req.body
 
-  const email = [
+  const email=[
    `To: ${to}`,
    "Content-Type: text/plain; charset=utf-8",
    `Subject: ${subject}`,
@@ -435,26 +455,26 @@ app.post("/sendEmail", async (req, res) => {
 
   const encodedMessage = Buffer.from(email)
    .toString("base64")
-   .replace(/\+/g, "-")
-   .replace(/\//g, "_")
-   .replace(/=+$/, "")
+   .replace(/\+/g,"-")
+   .replace(/\//g,"_")
+   .replace(/=+$/,"")
 
   const response = await axios.post(
    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-   { raw: encodedMessage },
+   {raw:encodedMessage},
    {
-    headers: { Authorization: `Bearer ${token}` }
+    headers:{ Authorization:`Bearer ${token}` }
    }
   )
 
   res.json(response.data)
 
- } catch (error) {
+ }catch(error){
 
-  console.error("Erreur sendEmail:", error.response?.data || error.message)
+  console.error("Erreur sendEmail:",error.response?.data || error.message)
 
   res.status(500).json({
-   error: "Impossible d'envoyer l'email"
+   error:"Impossible d'envoyer l'email"
   })
 
  }
@@ -465,9 +485,9 @@ app.post("/sendEmail", async (req, res) => {
 // Port Render
 // ============================
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT ?? 3000
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT,"0.0.0.0",()=>{
 
  console.log(`Gmail agent running on port ${PORT}`)
 
