@@ -19,26 +19,26 @@ const REFRESH_TOKEN = process.env.REFRESH_TOKEN
 
 async function getAccessToken() {
 
- try {
+try {
 
-  const response = await axios.post(
-   "https://oauth2.googleapis.com/token",
-   {
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-    refresh_token: REFRESH_TOKEN,
-    grant_type: "refresh_token"
-   }
-  )
+const response = await axios.post(
+"https://oauth2.googleapis.com/token",
+{
+client_id: CLIENT_ID,
+client_secret: CLIENT_SECRET,
+refresh_token: REFRESH_TOKEN,
+grant_type: "refresh_token"
+}
+)
 
-  return response.data.access_token
+return response.data.access_token
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur getAccessToken:", error.response?.data || error.message)
-  throw error
+console.error("Erreur getAccessToken:", error.response?.data || error.message)
+throw error
 
- }
+}
 
 }
 
@@ -48,36 +48,36 @@ async function getAccessToken() {
 
 app.get("/readInbox", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const pageToken = req.query.pageToken || ""
+const pageToken = req.query.pageToken || ""
 
-  const url = pageToken
-   ? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50&pageToken=${pageToken}`
-   : `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50`
+const url = pageToken
+? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50&pageToken=${pageToken}`
+: `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox&maxResults=50`
 
-  const response = await axios.get(
-   url,
-   {
-    headers: {
-     Authorization: `Bearer ${token}`
-    }
-   }
-  )
+const response = await axios.get(
+url,
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
-  res.json(response.data)
+res.json(response.data)
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur readInbox:", error.response?.data || error.message)
+console.error("Erreur readInbox:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible de lire la boite Gmail"
-  })
+res.status(500).json({
+error: "Impossible de lire la boite Gmail"
+})
 
- }
+}
 
 })
 
@@ -87,32 +87,32 @@ app.get("/readInbox", async (req, res) => {
 
 app.get("/searchEmails", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const query = req.query.q || ""
+const query = req.query.q || ""
 
-  const response = await axios.get(
-   `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`,
-   {
-    headers: {
-     Authorization: `Bearer ${token}`
-    }
-   }
-  )
+const response = await axios.get(
+`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`,
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
-  res.json(response.data)
+res.json(response.data)
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur searchEmails:", error.response?.data || error.message)
+console.error("Erreur searchEmails:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible de rechercher les emails"
-  })
+res.status(500).json({
+error: "Impossible de rechercher les emails"
+})
 
- }
+}
 
 })
 
@@ -122,65 +122,67 @@ app.get("/searchEmails", async (req, res) => {
 
 function extractText(payload) {
 
- if (!payload) return ""
+if (!payload) return ""
 
- if (payload.mimeType === "text/plain" && payload.body?.data) {
+if (payload.mimeType === "text/plain" && payload.body?.data) {
 
-  return Buffer.from(payload.body.data, "base64").toString("utf8")
+return Buffer.from(payload.body.data, "base64").toString("utf8")
 
- }
+}
 
- if (payload.parts) {
+if (payload.parts) {
 
-  for (const part of payload.parts) {
+for (const part of payload.parts) {
 
-   const result = extractText(part)
+const result = extractText(part)
 
-   if (result) return result
+if (result) return result
 
-  }
+}
 
- }
+}
 
- return ""
+return ""
 
 }
 
 // ============================
-// Fonction extraction attachments (récursive)
+// Fonction extraction attachments
 // ============================
 
 function extractAttachments(payload) {
 
- let attachments = []
+let attachments = []
 
- function walkParts(parts) {
+function walkParts(parts) {
 
-  for (const part of parts) {
+for (const part of parts) {
 
-   if (part.filename && part.filename.length > 0) {
+if (part.filename && part.filename.length > 0) {
 
-    attachments.push({
-     filename: part.filename,
-     mimeType: part.mimeType,
-     attachmentId: part.body?.attachmentId
-    })
+```
+attachments.push({
+ filename: part.filename,
+ mimeType: part.mimeType,
+ attachmentId: part.body?.attachmentId
+})
+```
 
-   }
+}
 
-   if (part.parts) {
-    walkParts(part.parts)
-   }
+if (part.parts) {
+walkParts(part.parts)
+}
 
-  }
+}
 
- }
+}
 
- if (payload.parts) {
-  walkParts(payload.parts)
- }
+if (payload.parts) {
+walkParts(payload.parts)
+}
 
- return attachments
+return attachments
 
 }
 
@@ -190,24 +192,24 @@ function extractAttachments(payload) {
 
 async function downloadAttachment(token, messageId, attachmentId) {
 
- const response = await axios.get(
-  `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
-  {
-   headers: {
-    Authorization: `Bearer ${token}`
-   }
-  }
- )
+const response = await axios.get(
+`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
- return response.data.data
+return response.data.data
 
 }
 
 function decodeBase64(data) {
 
- const base64 = data.replace(/-/g, "+").replace(/_/g, "/")
+const base64 = data.replace(/-/g, "+").replace(/_/g, "/")
 
- return Buffer.from(base64, "base64")
+return Buffer.from(base64, "base64")
 
 }
 
@@ -217,29 +219,29 @@ function decodeBase64(data) {
 
 app.get("/downloadAttachment/:messageId/:attachmentId", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const { messageId, attachmentId } = req.params
+const { messageId, attachmentId } = req.params
 
-  const base64Data = await downloadAttachment(token, messageId, attachmentId)
+const base64Data = await downloadAttachment(token, messageId, attachmentId)
 
-  const fileBuffer = decodeBase64(base64Data)
+const fileBuffer = decodeBase64(base64Data)
 
-  res.setHeader("Content-Type", "application/octet-stream")
+res.setHeader("Content-Type", "application/octet-stream")
 
-  res.send(fileBuffer)
+res.send(fileBuffer)
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur downloadAttachment:", error.response?.data || error.message)
+console.error("Erreur downloadAttachment:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible de télécharger la pièce jointe"
-  })
+res.status(500).json({
+error: "Impossible de télécharger la pièce jointe"
+})
 
- }
+}
 
 })
 
@@ -249,97 +251,186 @@ app.get("/downloadAttachment/:messageId/:attachmentId", async (req, res) => {
 
 app.get("/readEmail/:id", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const response = await axios.get(
-   `https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=full`,
-   {
-    headers: {
-     Authorization: `Bearer ${token}`
-    }
-   }
-  )
+const response = await axios.get(
+`https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.id}?format=full`,
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
-  const email = response.data
+const email = response.data
 
-  const textContent = extractText(email.payload)
+const textContent = extractText(email.payload)
 
-  const attachments = extractAttachments(email.payload)
+const attachments = extractAttachments(email.payload)
 
-  res.json({
-   id: email.id,
-   threadId: email.threadId,
-   snippet: email.snippet,
-   text: textContent,
-   headers: email.payload?.headers || [],
-   attachments: attachments
-  })
+res.json({
+id: email.id,
+threadId: email.threadId,
+snippet: email.snippet,
+text: textContent,
+headers: email.payload?.headers || [],
+attachments: attachments
+})
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur readEmail:", error.response?.data || error.message)
+console.error("Erreur readEmail:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible de lire cet email"
-  })
+res.status(500).json({
+error: "Impossible de lire cet email"
+})
 
- }
+}
 
 })
 
 // ============================
-// Lire toute une conversation (thread)
+// Lire toute une conversation
 // ============================
 
 app.get("/getThread/:threadId", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const response = await axios.get(
-   `https://gmail.googleapis.com/gmail/v1/users/me/threads/${req.params.threadId}`,
-   {
-    headers: {
-     Authorization: `Bearer ${token}`
-    }
-   }
-  )
+const response = await axios.get(
+`https://gmail.googleapis.com/gmail/v1/users/me/threads/${req.params.threadId}`,
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
-  const thread = response.data
+const thread = response.data
 
-  const messages = thread.messages.map(msg => {
+const messages = thread.messages.map(msg => {
 
-   const textContent = extractText(msg.payload)
-   const attachments = extractAttachments(msg.payload)
+const textContent = extractText(msg.payload)
+const attachments = extractAttachments(msg.payload)
 
-   return {
-    id: msg.id,
-    threadId: msg.threadId,
-    snippet: msg.snippet,
-    text: textContent,
-    headers: msg.payload?.headers || [],
-    attachments: attachments
-   }
+return {
+id: msg.id,
+threadId: msg.threadId,
+snippet: msg.snippet,
+text: textContent,
+headers: msg.payload?.headers || [],
+attachments: attachments
+}
 
-  })
+})
 
-  res.json({
-   threadId: thread.id,
-   messages: messages
-  })
+res.json({
+threadId: thread.id,
+messages: messages
+})
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur getThread:", error.response?.data || error.message)
+console.error("Erreur getThread:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible de lire la conversation"
-  })
+res.status(500).json({
+error: "Impossible de lire la conversation"
+})
 
- }
+}
+
+})
+
+// ============================
+// Export conversation complète
+// ============================
+
+app.post("/exportConversation", async (req, res) => {
+
+try {
+
+const token = await getAccessToken()
+
+const { email } = req.body
+
+if (!email) {
+return res.status(400).json({ error: "Email requis" })
+}
+
+let allMessages = []
+let nextPageToken = null
+
+const searchQuery = `from:${email} OR to:${email}`
+
+do {
+
+const url = nextPageToken
+? `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100&pageToken=${nextPageToken}`
+: `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=100`
+
+const response = await axios.get(url, {
+headers: { Authorization: `Bearer ${token}` }
+})
+
+const messages = response.data.messages || []
+
+allMessages.push(...messages)
+
+nextPageToken = response.data.nextPageToken
+
+} while (nextPageToken)
+
+let detailedMessages = []
+
+for (const msg of allMessages) {
+
+const response = await axios.get(
+`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
+{
+headers: { Authorization: `Bearer ${token}` }
+}
+)
+
+const emailData = response.data
+
+const textContent = extractText(emailData.payload)
+
+const headers = emailData.payload?.headers || []
+
+const getHeader = (name) => headers.find(h => h.name === name)?.value || ""
+
+detailedMessages.push({
+id: emailData.id,
+threadId: emailData.threadId,
+date: getHeader("Date"),
+from: getHeader("From"),
+to: getHeader("To"),
+subject: getHeader("Subject"),
+text: textContent
+})
+
+}
+
+detailedMessages.sort((a, b) => new Date(a.date) - new Date(b.date))
+
+res.json({
+totalEmails: detailedMessages.length,
+emails: detailedMessages
+})
+
+} catch (error) {
+
+console.error("Erreur exportConversation:", error.response?.data || error.message)
+
+res.status(500).json({
+error: "Impossible d'exporter la conversation"
+})
+
+}
 
 })
 
@@ -349,49 +440,49 @@ app.get("/getThread/:threadId", async (req, res) => {
 
 app.post("/sendEmail", async (req, res) => {
 
- try {
+try {
 
-  const token = await getAccessToken()
+const token = await getAccessToken()
 
-  const { to, subject, message } = req.body
+const { to, subject, message } = req.body
 
-  const email = [
-   `To: ${to}`,
-   "Content-Type: text/plain; charset=utf-8",
-   `Subject: ${subject}`,
-   "",
-   message
-  ].join("\n")
+const email = [
+`To: ${to}`,
+"Content-Type: text/plain; charset=utf-8",
+`Subject: ${subject}`,
+"",
+message
+].join("\n")
 
-  const encodedMessage = Buffer.from(email)
-   .toString("base64")
-   .replace(/\+/g, "-")
-   .replace(/\//g, "_")
-   .replace(/=+$/, "")
+const encodedMessage = Buffer.from(email)
+.toString("base64")
+.replace(/+/g, "-")
+.replace(///g, "_")
+.replace(/=+$/, "")
 
-  const response = await axios.post(
-   "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-   {
-    raw: encodedMessage
-   },
-   {
-    headers: {
-     Authorization: `Bearer ${token}`
-    }
-   }
-  )
+const response = await axios.post(
+"https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+{
+raw: encodedMessage
+},
+{
+headers: {
+Authorization: `Bearer ${token}`
+}
+}
+)
 
-  res.json(response.data)
+res.json(response.data)
 
- } catch (error) {
+} catch (error) {
 
-  console.error("Erreur sendEmail:", error.response?.data || error.message)
+console.error("Erreur sendEmail:", error.response?.data || error.message)
 
-  res.status(500).json({
-   error: "Impossible d'envoyer l'email"
-  })
+res.status(500).json({
+error: "Impossible d'envoyer l'email"
+})
 
- }
+}
 
 })
 
@@ -403,6 +494,6 @@ const PORT = process.env.PORT || 3000
 
 app.listen(PORT, "0.0.0.0", () => {
 
- console.log(`Gmail agent running on port ${PORT}`)
+console.log(`Gmail agent running on port ${PORT}`)
 
 })
