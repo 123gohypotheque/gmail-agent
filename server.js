@@ -108,8 +108,8 @@ message
 
 const encodedMessage = Buffer.from(email)
 .toString("base64")
-.replace(/+/g, "-")
-.replace(///g, "_")
+.replace(/\+/g, "-")
+.replace(/\//g, "_")
 .replace(/=+$/, "")
 
 const response = await axios.post(
